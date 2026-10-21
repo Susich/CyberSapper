@@ -1,0 +1,560 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using Minesweeper.Storage;
+using Minesweeper.Audio;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
+
+namespace Minesweeper.Core
+{
+    public class GameController : MonoBehaviour
+    {
+        public static GameController Instance { get; private set; }
+
+        public event Action<GameStatus> OnGameStatusChanged;
+        public event Action<int> OnMineCounterChanged;
+        public event Action<int> OnTimerChanged;
+        public event Action<CellData> OnCellUpdated;
+        public event Action<List<CellData>> OnMultipleCellsUpdated;
+        public event Action<CellData> OnDetonated;
+        public event Action<CellData> OnHintGiven;
+        public event Action<GameDifficulty> OnGameInitialized;
+        public event Action OnBoardReset;
+
+        public GameStatus Status { get; private set; } = GameStatus.WaitingForStart;
+        public MinesweeperBoard Board { get; private set; }
+        public GameDifficulty CurrentDifficulty { get; private set; }
+        public float ElapsedTime { get; private set; } = 0f;
+        public int ElapsedSeconds => Mathf.Clamp((int)ElapsedTime, 0, 999);
+        public int RemainingMines => Board != null ? Board.TotalMines - Board.FlagsCount : 0;
+
+        // Статистика текущего раунда
+        public int TotalClicks { get; private set; } = 0;
+        public int TotalSafeClicks { get; private set; } = 0;
+        public CellData LastDetonatedCell { get; private set; }
+
+        private SaveManager _saveManager;
+        private GameSettingsData _settings;
+        private HighScoresData _highScores;
+        private int _lastTickedSecond = -1;
+        private bool _isMouseDownOnBoard = false;
+
+        public bool IsMouseDownOnBoard => _isMouseDownOnBoard;
+        public SaveManager SaveMgr => _saveManager;
+        public GameSettingsData Settings => _settings;
+        public HighScoresData HighScores => _highScores;
+
+        private void Awake()
+        {
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
+
+            _saveManager = new SaveManager();
+            _settings = _saveManager.LoadSettings();
+            _highScores = _saveManager.LoadHighScores();
+        }
+
+        private void Start()
+        {
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.InitializeSettings(_settings.SoundVolume, _settings.IsMuted, _settings.TimerTickEnabled);
+            }
+
+            // Проверяем сохранённую незавершённую сессию (FR-037)
+            var savedSession = _saveManager.LoadSession();
+            if (savedSession != null && savedSession.Cells != null && savedSession.Cells.Count > 0)
+            {
+                RestoreSavedSession(savedSession);
+            }
+            else
+            {
+                StartNewGame(_settings.Difficulty, _settings.CustomWidth, _settings.CustomHeight, _settings.CustomMines);
+            }
+        }
+
+        private void Update()
+        {
+            if (Status == GameStatus.InProgress)
+            {
+                ElapsedTime += Time.deltaTime;
+                if (ElapsedTime > 999f) ElapsedTime = 999f;
+
+                int currentSec = ElapsedSeconds;
+                if (currentSec != _lastTickedSecond)
+                {
+                    _lastTickedSecond = currentSec;
+                    OnTimerChanged?.Invoke(currentSec);
+
+                    if (AudioManager.Instance != null)
+                    {
+                        AudioManager.Instance.PlayTimerTick();
+                    }
+                }
+            }
+
+            // Горячая клавиша быстрого перезапуска F2 / Space (FR-026, GDD 2.1.2)
+            if (CheckRestartHotkeys())
+            {
+                RestartGame();
+            }
+
+            // Горячая клавиша переключения полноэкранного режима (F11)
+            if (CheckFullscreenPressed())
+            {
+                Screen.fullScreen = !Screen.fullScreen;
+            }
+        }
+
+        private bool CheckRestartHotkeys()
+        {
+            // Не срабатывать по горячей клавише, если поле ввода в фокусе
+            if (UnityEngine.EventSystems.EventSystem.current != null && 
+                UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject != null &&
+                UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject.GetComponent<TMPro.TMP_InputField>() != null)
+            {
+                return false;
+            }
+
+#if ENABLE_INPUT_SYSTEM
+            if (Keyboard.current != null && (Keyboard.current.f2Key.wasPressedThisFrame || Keyboard.current.spaceKey.wasPressedThisFrame))
+                return true;
+#endif
+            try
+            {
+                return Input.GetKeyDown(KeyCode.F2) || Input.GetKeyDown(KeyCode.Space);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool CheckFullscreenPressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (Keyboard.current != null && Keyboard.current.f11Key.wasPressedThisFrame)
+                return true;
+#endif
+            try
+            {
+                return Input.GetKeyDown(KeyCode.F11);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public void GiveHint()
+        {
+            if (Status != GameStatus.InProgress || Board == null) return;
+
+            // Ищем безопасную неоткрытую ячейку (предпочтительно рядом с открытыми)
+            CellData candidate = null;
+
+            // Первый проход: неоткрытые безопасные ячейки рядом с открытыми числами
+            for (int x = 0; x < Board.Width; x++)
+            {
+                for (int y = 0; y < Board.Height; y++)
+                {
+                    var cell = Board.GetCell(x, y);
+                    if (cell.State == CellState.Revealed && cell.AdjacentMines > 0)
+                    {
+                        foreach (var n in Board.GetNeighbors(x, y))
+                        {
+                            if (n.State == CellState.Closed && !n.IsMine)
+                            {
+                                candidate = n;
+                                break;
+                            }
+                        }
+                    }
+                    if (candidate != null) break;
+                }
+                if (candidate != null) break;
+            }
+
+            // Запасной вариант: любая закрытая безопасная ячейка
+            if (candidate == null)
+            {
+                for (int x = 0; x < Board.Width; x++)
+                {
+                    for (int y = 0; y < Board.Height; y++)
+                    {
+                        var cell = Board.GetCell(x, y);
+                        if (cell.State == CellState.Closed && !cell.IsMine)
+                        {
+                            candidate = cell;
+                            break;
+                        }
+                    }
+                    if (candidate != null) break;
+                }
+            }
+
+            if (candidate != null)
+            {
+                // Штраф +5 секунд согласно GDD 9.2
+                ElapsedTime = Mathf.Min(ElapsedTime + 5f, 999f);
+                OnTimerChanged?.Invoke(ElapsedSeconds);
+
+                OnHintGiven?.Invoke(candidate);
+
+                if (AudioManager.Instance != null)
+                {
+                    AudioManager.Instance.Play(SoundType.Click);
+                }
+            }
+        }
+
+        public void StartNewGame(DifficultyLevel level, int customW = 9, int customH = 9, int customMines = 10)
+        {
+            CurrentDifficulty = GameDifficulty.Create(level, customW, customH, customMines);
+            _settings.Difficulty = level;
+            if (level == DifficultyLevel.Custom)
+            {
+                _settings.CustomWidth = CurrentDifficulty.Width;
+                _settings.CustomHeight = CurrentDifficulty.Height;
+                _settings.CustomMines = CurrentDifficulty.Mines;
+            }
+            _saveManager.SaveSettings(_settings);
+
+            ResetGame();
+        }
+
+        public void RestartGame()
+        {
+            ResetGame();
+        }
+
+        private void ResetGame()
+        {
+            _saveManager.ClearSession();
+
+            Board = new MinesweeperBoard(CurrentDifficulty.Width, CurrentDifficulty.Height, CurrentDifficulty.Mines);
+            ElapsedTime = 0f;
+            _lastTickedSecond = 0;
+            TotalClicks = 0;
+            TotalSafeClicks = 0;
+            LastDetonatedCell = null;
+            _isMouseDownOnBoard = false;
+
+            Status = GameStatus.WaitingForStart;
+
+            OnBoardReset?.Invoke();
+            OnGameInitialized?.Invoke(CurrentDifficulty);
+            OnMineCounterChanged?.Invoke(RemainingMines);
+            OnTimerChanged?.Invoke(0);
+            OnGameStatusChanged?.Invoke(Status);
+        }
+
+        public void SetMouseDownOnBoard(bool isDown)
+        {
+            if (Status == GameStatus.WaitingForStart || Status == GameStatus.InProgress)
+            {
+                _isMouseDownOnBoard = isDown;
+                OnGameStatusChanged?.Invoke(Status);
+            }
+        }
+
+        public void OnCellLeftClick(int x, int y)
+        {
+            if (Status == GameStatus.Paused)
+            {
+                ResumeGame();
+            }
+
+            if (Status != GameStatus.WaitingForStart && Status != GameStatus.InProgress)
+                return;
+
+            TotalClicks++;
+
+            // Первый клик: генерация с безопасным первым кликом (FR-003, FR-004)
+            if (Status == GameStatus.WaitingForStart)
+            {
+                Board.GenerateBoard(x, y);
+                Status = GameStatus.InProgress;
+                _lastTickedSecond = 0;
+                OnGameStatusChanged?.Invoke(Status);
+            }
+
+            var result = Board.Reveal(x, y);
+            ProcessRevealResult(result);
+        }
+
+        public void OnCellRightClick(int x, int y)
+        {
+            if (Status == GameStatus.Paused)
+            {
+                ResumeGame();
+            }
+
+            if (Status != GameStatus.WaitingForStart && Status != GameStatus.InProgress)
+                return;
+
+            TotalClicks++;
+            int delta = Board.ToggleFlag(x, y);
+            if (delta != 0)
+            {
+                var cell = Board.GetCell(x, y);
+                OnCellUpdated?.Invoke(cell);
+                OnMineCounterChanged?.Invoke(RemainingMines);
+
+                if (AudioManager.Instance != null)
+                {
+                    AudioManager.Instance.Play(delta > 0 ? SoundType.Flag : SoundType.Unflag);
+                }
+            }
+        }
+
+        public void OnCellChordClick(int x, int y)
+        {
+            if (Status != GameStatus.InProgress) return;
+
+            TotalClicks++;
+            var result = Board.Chord(x, y);
+            ProcessRevealResult(result);
+        }
+
+        private void ProcessRevealResult(RevealResult result)
+        {
+            if (result.RevealedCells != null && result.RevealedCells.Count > 0)
+            {
+                if (result.IsMineDetonated)
+                {
+                    LastDetonatedCell = result.DetonatedCell;
+                    Status = GameStatus.Defeat;
+                    _isMouseDownOnBoard = false;
+                    _saveManager.ClearSession();
+
+                    OnDetonated?.Invoke(LastDetonatedCell);
+
+                    // Передаём все ячейки поля, чтобы обновить все мины и ложные флаги по всему полю
+                    var allBoardCells = new List<CellData>();
+                    if (Board != null)
+                    {
+                        for (int gx = 0; gx < Board.Width; gx++)
+                        {
+                            for (int gy = 0; gy < Board.Height; gy++)
+                            {
+                                allBoardCells.Add(Board.GetCell(gx, gy));
+                            }
+                        }
+                    }
+                    OnMultipleCellsUpdated?.Invoke(allBoardCells.Count > 0 ? allBoardCells : result.RevealedCells);
+                    OnGameStatusChanged?.Invoke(Status);
+
+                    if (AudioManager.Instance != null)
+                    {
+                        AudioManager.Instance.Play(SoundType.Explosion);
+                    }
+                }
+                else
+                {
+                    TotalSafeClicks += result.RevealedCells.Count;
+                    OnMultipleCellsUpdated?.Invoke(result.RevealedCells);
+
+                    if (result.IsVictory)
+                    {
+                        Status = GameStatus.Victory;
+                        _isMouseDownOnBoard = false;
+                        _saveManager.ClearSession();
+
+                        var allBoardCells = new List<CellData>();
+                        if (Board != null)
+                        {
+                            for (int gx = 0; gx < Board.Width; gx++)
+                            {
+                                for (int gy = 0; gy < Board.Height; gy++)
+                                {
+                                    allBoardCells.Add(Board.GetCell(gx, gy));
+                                }
+                            }
+                        }
+                        OnMultipleCellsUpdated?.Invoke(allBoardCells.Count > 0 ? allBoardCells : result.RevealedCells);
+                        OnMineCounterChanged?.Invoke(RemainingMines);
+                        OnGameStatusChanged?.Invoke(Status);
+
+                        if (AudioManager.Instance != null)
+                        {
+                            AudioManager.Instance.Play(SoundType.Victory);
+                        }
+                    }
+                    else
+                    {
+                        if (AudioManager.Instance != null)
+                        {
+                            AudioManager.Instance.Play(result.RevealedCells.Count > 1 ? SoundType.Cascade : SoundType.Click);
+                        }
+                    }
+                }
+            }
+        }
+
+        public void PauseGame()
+        {
+            if (Status == GameStatus.InProgress)
+            {
+                Status = GameStatus.Paused;
+                OnGameStatusChanged?.Invoke(Status);
+                SaveCurrentSession();
+            }
+        }
+
+        public void ResumeGame()
+        {
+            if (Status == GameStatus.Paused)
+            {
+                Status = GameStatus.InProgress;
+                OnGameStatusChanged?.Invoke(Status);
+            }
+        }
+
+        public void TogglePause()
+        {
+            if (Status == GameStatus.InProgress)
+                PauseGame();
+            else if (Status == GameStatus.Paused)
+                ResumeGame();
+        }
+
+        /// <summary>
+        /// Приостанавливает раунд для информационного модального окна.
+        /// Возвращает true только если этот вызов действительно приостановил идущую игру, чтобы модальное окно
+        /// могло восстановить то же самое состояние при закрытии (issue #4 - вручную приостановленная игра
+        /// должна оставаться на паузе после закрытия модального окна).
+        /// </summary>
+        public bool PauseForModal()
+        {
+            if (Status != GameStatus.InProgress)
+                return false;
+
+            PauseGame();
+            return true;
+        }
+
+        /// <summary>Возобновляет раунд после модального окна, но только если именно оно его приостановило.</summary>
+        public void ResumeAfterModal(bool pausedByModal)
+        {
+            if (pausedByModal)
+            {
+                ResumeGame();
+            }
+        }
+
+        private void SaveCurrentSession()
+        {
+            if (Status == GameStatus.InProgress || Status == GameStatus.Paused)
+            {
+                var session = SavedGameState.Capture(Board, CurrentDifficulty.Level, ElapsedTime);
+                _saveManager.SaveSession(session);
+            }
+            else
+            {
+                _saveManager.ClearSession();
+            }
+        }
+
+        private void RestoreSavedSession(SavedGameState session)
+        {
+            CurrentDifficulty = GameDifficulty.Create(session.Difficulty, session.Width, session.Height, session.TotalMines);
+            Board = new MinesweeperBoard(session.Width, session.Height, session.TotalMines);
+            session.RestoreTo(Board);
+
+            ElapsedTime = session.ElapsedTime;
+            _lastTickedSecond = ElapsedSeconds;
+
+            // Восстановленная игра начинается в состоянии Paused до действия игрока (FR-037)
+            Status = GameStatus.Paused;
+
+            OnBoardReset?.Invoke();
+            OnGameInitialized?.Invoke(CurrentDifficulty);
+            OnMineCounterChanged?.Invoke(RemainingMines);
+            OnTimerChanged?.Invoke(ElapsedSeconds);
+            OnGameStatusChanged?.Invoke(Status);
+
+            // Уведомляем UI о восстановленных ячейках
+            var allCells = new List<CellData>();
+            for (int x = 0; x < Board.Width; x++)
+            {
+                for (int y = 0; y < Board.Height; y++)
+                {
+                    allCells.Add(Board.GetCell(x, y));
+                }
+            }
+            OnMultipleCellsUpdated?.Invoke(allCells);
+        }
+
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            if (!hasFocus && Status == GameStatus.InProgress)
+            {
+                PauseGame();
+            }
+        }
+
+        private void OnApplicationPause(bool pause)
+        {
+            if (pause && Status == GameStatus.InProgress)
+            {
+                PauseGame();
+            }
+        }
+
+        private void OnApplicationQuit()
+        {
+            SaveCurrentSession();
+        }
+
+        public float CalculateAccuracy()
+        {
+            if (TotalClicks == 0) return 100f;
+            float acc = ((float)TotalSafeClicks / Mathf.Max(1, TotalClicks)) * 100f;
+            return Mathf.Clamp(acc, 0f, 100f);
+        }
+
+        public float CalculateEfficiency()
+        {
+            if (ElapsedTime <= 0.05f) return 0f;
+            return (float)Math.Round(TotalClicks / ElapsedTime, 2);
+        }
+
+        public bool CheckHighScoreEligibility()
+        {
+            return _highScores.IsEligibleForHighScore(CurrentDifficulty.Level, ElapsedTime);
+        }
+
+        public int RegisterHighScore(string playerName)
+        {
+            // FR-023: от 1 до 16 символов, пробелы по краям обрезаются
+            playerName = (playerName ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(playerName))
+                playerName = "Player";
+
+            if (playerName.Length > 16)
+                playerName = playerName.Substring(0, 16);
+
+            _settings.LastPlayerName = playerName;
+            _saveManager.SaveSettings(_settings);
+
+            var entry = new HighScoreEntry(
+                playerName,
+                (float)Math.Round(ElapsedTime, 2),
+                DateTime.UtcNow.ToString("yyyy.MM.dd"),
+                (float)Math.Round(CalculateAccuracy(), 1),
+                CalculateEfficiency()
+            );
+
+            int rank = _highScores.AddScore(CurrentDifficulty.Level, entry);
+            _saveManager.SaveHighScores(_highScores);
+            return rank;
+        }
+    }
+}

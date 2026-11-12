@@ -52,3 +52,7 @@ Assets/link.xml
 # Unity Performance Testing package artefacts
 Assets/Resources/
 Assets/Resources.meta
+
+# Unity recovery snapshots
+Assets/_Recovery/
+Assets/_Recovery.meta

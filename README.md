@@ -106,6 +106,8 @@
 
 **Требования:** Unity **6000.3.28f1** (или новее из ветки 6000.3), Visual Studio / Rider.
 
+Сборка проверена на Unity 6000.3.28f1 и Visual Studio 2022.
+
 ```bash
 git clone https://github.com/Susich/CyberSapper.git
 cd CyberSapper

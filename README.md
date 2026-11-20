@@ -89,7 +89,7 @@
 
 ## Запуск готовой сборки
 
-1. Скачайте архив `CyberSapper-v1.0.0.zip` из раздела **Releases**.
+1. Скачайте архив `CyberSapper-v1.0.1.zip` из раздела **Releases**.
 2. Распакуйте его в любую папку.
 3. Запустите **`CyberSapper.exe`**.
 
@@ -105,8 +105,6 @@
 ## Сборка из исходников
 
 **Требования:** Unity **6000.3.28f1** (или новее из ветки 6000.3), Visual Studio / Rider.
-
-Сборка проверена на Unity 6000.3.28f1 и Visual Studio 2022.
 
 ```bash
 git clone https://github.com/Susich/CyberSapper.git

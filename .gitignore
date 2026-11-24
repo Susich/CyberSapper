@@ -56,3 +56,8 @@ Assets/Resources.meta
 # Unity recovery snapshots
 Assets/_Recovery/
 Assets/_Recovery.meta
+
+# Локальные снимки и превью интерфейса
+screenshot.png
+scene_screenshot.png
+UI_Preview/

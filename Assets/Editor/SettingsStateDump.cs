@@ -12,7 +12,7 @@ using Minesweeper.UI;
 
 namespace Minesweeper.Editor
 {
-    /// <summary>Временный дамп состояния модального окна настроек в режиме play.</summary>
+    /// <summary>Диагностический дамп состояния модального окна настроек в режиме play.</summary>
     public static class SettingsStateDump
     {
         private const string ActiveKey = "SettingsStateDump.Active";
@@ -184,7 +184,9 @@ namespace Minesweeper.Editor
             canvas.worldCamera = prevCamera;
             canvas.planeDistance = prevPlane;
 
-            string dir = @"C:\Users\sus\AppData\Local\Temp\opencode";
+            // Дампы кладём в Logs/ проекта: путь не должен зависеть от машины разработчика.
+            string dir = Path.Combine(Directory.GetCurrentDirectory(), "Logs", "dumps");
+            Directory.CreateDirectory(dir);
             File.WriteAllBytes(Path.Combine(dir, fileName), tex.EncodeToPNG());
             UnityEngine.Object.DestroyImmediate(tex);
             Debug.Log("[DUMP] saved " + fileName);

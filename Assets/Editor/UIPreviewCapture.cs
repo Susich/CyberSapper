@@ -22,7 +22,8 @@ namespace Minesweeper.Editor
         [MenuItem("Tools/Capture UI Previews")]
         public static void CaptureAllPreviews()
         {
-            string dir = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "UI_Preview"));
+            // Превью кладём в UI_Preview/ в корне проекта (не рядом с папкой проекта).
+            string dir = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "UI_Preview"));
             Directory.CreateDirectory(dir);
 
             var states = new[] { "game", "settings", "leaderboard", "victory", "defeat", "help" };

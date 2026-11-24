@@ -24,6 +24,7 @@
 - [Соответствие требованиям](#соответствие-требованиям)
 - [Инструменты разработчика](#инструменты-разработчика)
 - [Команда разработчиков](#команда-разработчиков)
+- [Лицензия и ресурсы](#лицензия-и-ресурсы)
 
 ---
 
@@ -82,7 +83,7 @@
 | ОС | Windows 10 / 11 (64-bit) |
 | Процессор / память | x64, 150 МБ ОЗУ (NFR-003) |
 | Графика | DirectX 11 (HI-002) |
-| Разрешение | 1920×1080 (рекомендуется), окно изменяемое |
+| Разрешение | 1920×1080 (рекомендуется), окно изменяемое, минимум 1280×720 |
 | Доп. требования | Не требуется - интернет, регистрация и установка дополнительных компонентов не нужны |
 
 ---
@@ -90,15 +91,20 @@
 ## Запуск готовой сборки
 
 1. Скачайте архив `CyberSapper-v1.0.2.zip` из раздела **Releases**.
-2. Распакуйте его в любую папку.
-3. Запустите **`CyberSapper.exe`**.
+2. Распакуйте архив целиком в любую папку: внутри лежит папка `CyberSapper-v1.0.2`
+   с игрой.
+3. Запустите **`CyberSapper-v1.0.2\CyberSapper.exe`** из распакованной папки.
+
+> Не запускайте `.exe` прямо из окна архива: игре нужна папка `CyberSapper_Data`,
+> лежащая рядом с исполняемым файлом, иначе появится ошибка `Data folder not found`.
 
 > При первом запуске Windows может показать предупреждение SmartScreen («неподписанное
 > приложение») - сборка собрана локально и не подписана сертификатом. Нажмите
 > **«Подробнее» → «Выполнить в любом случае»**.
 
 Настройки, рекорды и незавершённая партия сохраняются в
-`%APPDATA%\VolgGTU\CyberSapper\`.
+`%USERPROFILE%\AppData\LocalLow\VolgGTU\CyberSapper\` (это путь Unity
+`Application.persistentDataPath`; папка создаётся при первом запуске).
 
 ---
 
@@ -135,7 +141,7 @@ Tools → Run Unit Tests
 
 Тестовый набор покрывает генерацию поля, безопасный первый ход, расчёт соседей,
 каскадное раскрытие, флаги и счётчик, условия победы и поражения, аккорд,
-валидацию пользовательской сложности и таблицу рекордов.
+валидацию пользовательской сложности, таблицу рекордов и её сброс.
 
 ---
 
@@ -148,12 +154,13 @@ Assets/
 │   ├── BuildHelper.cs                    # Сборка Windows-плеера (DirectX 11)
 │   ├── FontAssetGenerator.cs             # Генерация SDF-шрифтов
 │   ├── GameViewSetup.cs                  # Превью Game view 1920×1080 @ 1:1
+│   ├── GameViewScreenshot.cs             # Снимок Game view и сцены
 │   ├── LayoutDiagnostics.cs              # Дамп RectTransform'ов деки
 │   ├── PlayModeSmokeTest.cs              # Проверка HUD в Play Mode
+│   ├── SettingsStateDump.cs              # Дамп состояния окна настроек
 │   ├── SpriteConfigurator.cs             # Настройка импорта спрайтов
 │   └── UIPreviewCapture.cs               # Снятие превью всех экранов
 ├── Fonts/                      # JetBrains Mono и Space Grotesk (SDF)
-├── Prefabs/
 ├── Scenes/
 │   └── CyberMinesweeper.unity  # Основная сцена (генерируется генератором)
 ├── Scripts/
@@ -166,15 +173,17 @@ Assets/
 │   ├── Storage/                # Сохранения: рекорды, настройки, сессия
 │   └── UI/                     # Представления (View) HUD
 │       ├── BoardGridView.cs / CellView.cs
-│       ├── HeaderStatusView.cs / TopMenuBar.cs / TopMenuDropdown.cs
+│       ├── HeaderStatusView.cs / TopMenuBar.cs
 │       ├── StatusFaceButton.cs / SystemStatusBar.cs / ScreenShake.cs
 │       ├── CyberPulseDot.cs / CyberWaveformVisualizer.cs
+│       ├── WindowSizeGuard.cs  # Минимальный размер окна 1280×720
 │       └── SettingsModal.cs / LeaderboardsModal.cs
 │           VictoryModal.cs / DefeatModal.cs / HelpAboutModal.cs
 ├── Settings/                   # URP, Input System, TMP
 ├── Sprites/                    # Иконки и 9-слайс-панели HUD
 └── Tests/Editor/               # Модульные тесты ядра
 docs/screenshots/               # Скриншоты интерфейса
+generate_sprites.py             # Генерация спрайтов HUD (Python)
 ```
 
 ---
@@ -187,18 +196,20 @@ docs/screenshots/               # Скриншоты интерфейса
 InputSystemUIInputModule
         │  (ЛКМ / ПКМ / СКМ)
         ▼
-    CellView  ──►  GameController  ──►  MinesweeperBoard      ← ядро, без Unity API
+    CellView  ──►  GameController  ──►  MinesweeperBoard      ← игровая логика
         ▲              │  │
-        │              │  └──►  SaveManager  ──►  JSON в %APPDATA%
+        │              │  └──►  SaveManager  ──►  JSON в AppData\LocalLow
         │              ▼
         └── events ───►  HeaderStatusView / StatusFaceButton /
                          SettingsModal / LeaderboardsModal /
                          VictoryModal / DefeatModal
 ```
 
-**Ядро (`Minesweeper.Core`)** не зависит от UnityEngine и полностью покрывается
-юнит-тестами: генерация мин, подсчёт соседей, каскадное раскрытие, флаги, аккорд,
-условия победы/поражения, валидация сложности.
+**Игровая логика (`MinesweeperBoard`, `CellData`, `GameDifficulty`)** не зависит от
+сцены и представлений и полностью покрывается юнит-тестами: генерация мин, подсчёт
+соседей, каскадное раскрытие, флаги, аккорд, условия победы/поражения, валидация
+сложности. `GameController` - единственное место, где логика связана с Unity:
+таймер, ввод и сохранения.
 
 **Представления (`Minesweeper.UI`)** подписываются на события `GameController`
 (`OnCellUpdated`, `OnTimerChanged`, `OnMineCounterChanged`, `OnGameStatusChanged`,
@@ -218,7 +229,7 @@ InputSystemUIInputModule
 | Требование | Состояние |
 |---|---|
 | UI-001...UI-008, UI-010...UI-013 | ✅ реализовано |
-| UI-009 - канонические цвета цифр (1 - синий, 2 - зелёный, ...) | ⚠️ применяется киберпанк-спектр из дизайн-системы (`DESIGN.md`: `#00F2FE / #00FF66 / #FF0055 / ...`). Каноническая палитра SRS описывает предыдущую ретро-версию интерфейса. Переключается одной функцией `CellView.GetNumberColor()`. |
+| UI-009 - канонические цвета цифр (1 - синий, 2 - зелёный, ...) | ⚠️ применяется киберпанк-спектр дизайн-системы проекта (`#00F2FE / #00FF66 / #FF0055 / ...`). Каноническая палитра SRS описывает предыдущую ретро-версию интерфейса. Переключается одной функцией `CellView.GetNumberColor()`. |
 | FR-001...FR-037 | ✅ реализовано, покрыто 12 модульными тестами |
 | HI-001, HI-002, SI-001, SI-002 | ✅ реализовано |
 | NFR-001...NFR-013 | ✅ реализовано |
@@ -233,11 +244,15 @@ InputSystemUIInputModule
 |---|---|
 | **Build Cyber Minesweeper Scene** | Перегенерировать HUD-сцену из кода |
 | **Build Windows Standalone** | Собрать исполняемый файл (DirectX 11) |
+| **Generate Cyber Font Assets** | Перегенерировать SDF-шрифты HUD |
 | **Capture UI Previews** | Снять превью всех экранов в `UI_Preview/` |
+| **Capture Game Screenshot** | Снимок Game view в `screenshot.png` |
+| **Capture Scene & Game View** | Снимок сцены в `scene_screenshot.png` |
 | **Game View/1920x1080 (1:1)** | Превью в редакторе пиксель-в-пиксель |
 | **Run Unit Tests** | Модульные тесты ядра |
 | **Run HUD Interaction Checks** | Проверка кнопок закрытия окон в Play Mode |
 | **Diagnose Deck Layout** | Дамп размеров элементов тактической деки |
+| **Reimport Sprites** | Повторный импорт спрайтов с настройками 9-слайса |
 
 ---
 
@@ -249,7 +264,7 @@ InputSystemUIInputModule
 | Frontend-разработчик | **Игнатов М.Р.** | GUI, визуализация игровых событий, текущий HUD |
 | Backend-разработчик | **Сапунков А.Р.** | Ядро игры: генерация поля, ходы, победа/поражение, тесты |
 
-**Преподаватель:** доцент Рак Д.В., ВолгГТУ.
+**Преподаватель:** Рак Д.В., ВолгГТУ.
 
 ---
 

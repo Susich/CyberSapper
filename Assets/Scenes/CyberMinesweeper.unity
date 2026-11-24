@@ -5912,6 +5912,7 @@ GameObject:
   - component: {fileID: 311186325}
   - component: {fileID: 311186324}
   - component: {fileID: 311186323}
+  - component: {fileID: 311186326}
   m_Layer: 0
   m_Name: SystemStatusBar
   m_TagString: Untagged
@@ -5954,6 +5955,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Minesweeper.UI.SystemStatusBar
   _fpsText: {fileID: 933840394}
   _engineLabel: "\u0414\u0432\u0438\u0436\u043E\u043A: CyberSweeper 2.4"
+--- !u!114 &311186326
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 311186321}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 05182a03c78943c396fa80f5d78a249d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Minesweeper.UI.WindowSizeGuard
 --- !u!114 &311186324
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -30584,6 +30597,7 @@ MonoBehaviour:
   _minesMinus: {fileID: 390240801}
   _minesPlus: {fileID: 1369828764}
   _minesSlider: {fileID: 1521830933}
+  _minesRangeText: {fileID: 950374670}
   _densityText: {fileID: 1509155443}
   _densityStatusBadge: {fileID: 2061402497}
   _totalCellsText: {fileID: 1080713606}
@@ -33952,7 +33966,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_text: "\u041F\u0440\u0435\u043F\u043E\u0434\u0430\u0432\u0430\u0442\u0435\u043B\u044C:
-    \u0434\u043E\u0446\u0435\u043D\u0442 \u0420\u0430\u043A \u0414.\u0412."
+    \u0420\u0430\u043A \u0414.\u0412."
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 01a3fbe553d14224ea6cbd27640a411f, type: 2}
   m_sharedMaterial: {fileID: -7563487354506375967, guid: 01a3fbe553d14224ea6cbd27640a411f, type: 2}
@@ -35901,7 +35915,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "[F2 / \u043A\u043B\u0438\u043A \u043F\u043E \u0434\u0440\u043E\u043D\u0443]
+  m_text: "[F2 / \u043A\u043B\u0438\u043A \u043F\u043E \u0441\u043C\u0430\u0439\u043B\u0438\u043A\u0443]
     \u0411\u044B\u0441\u0442\u0440\u044B\u0439 \u0440\u0435\u0441\u0442\u0430\u0440\u0442
     \u043F\u0430\u0440\u0442\u0438\u0438 \u0441 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435\u043C
     \u0441\u043B\u043E\u0436\u043D\u043E\u0441\u0442\u0438."

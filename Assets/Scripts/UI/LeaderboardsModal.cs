@@ -51,6 +51,12 @@ namespace Minesweeper.UI
         [SerializeField] private Sprite _replaySprite;
         [SerializeField] private Sprite _playSprite;
 
+        // Ширины столбцов в дизайн-единицах. Заголовок и строки используют один
+        // и тот же набор, иначе колонки таблицы разъезжаются (issue: съехавшие столбцы).
+        private static readonly float[] ColumnWidths = { 34f, 381f, 100f, 104f, 130f };
+        private const float RowPaddingX = 22f;
+        private const float ColumnSpacing = 10f;
+
         [Header("Tab Sprites")]
         public Sprite ActiveTabSprite;
         public Sprite InactiveTabSprite;
@@ -240,19 +246,21 @@ namespace Minesweeper.UI
                 if (headerLayout != null)
                 {
                     // Сохраняем тот же внутренний отступ, что и у группы раскладки строки.
-                    headerLayout.padding = new RectOffset(22, 22, 0, 0);
+                    headerLayout.padding = new RectOffset(
+                        Mathf.RoundToInt(RowPaddingX * UI_SCALE),
+                        Mathf.RoundToInt(RowPaddingX * UI_SCALE), 0, 0);
+                    headerLayout.spacing = ColumnSpacing * UI_SCALE;
                 }
 
                 // Суммарное содержимое должно укладываться в внутреннюю ширину панели 1018 px,
                 // иначе вертикальная раскладка выдаёт заголовку его предпочтительную
                 // ширину 1044.8 px, центрирует его и смещает относительно строк.
                 // Ранг: 34, Имя: 381, Время: 100, Точность: 104, Дата: 130
-                float[] columnWidths = { 34f, 381f, 100f, 104f, 130f };
-                for (int i = 0; i < header.childCount && i < columnWidths.Length; i++)
+                for (int i = 0; i < header.childCount && i < ColumnWidths.Length; i++)
                 {
                     if (!(header.GetChild(i) is RectTransform column)) continue;
 
-                    float width = columnWidths[i] * UI_SCALE;
+                    float width = ColumnWidths[i] * UI_SCALE;
                     column.sizeDelta = new Vector2(width, column.sizeDelta.y);
 
                     var layoutElement = column.GetComponent<LayoutElement>();
@@ -362,8 +370,10 @@ namespace Minesweeper.UI
                         new Color(15f / 255f, 20f / 255f, 28f / 255f, 0.75f);
 
             var hlg = rowObj.GetComponent<HorizontalLayoutGroup>();
-            hlg.padding = new RectOffset(22, 22, 0, 0);
-            hlg.spacing = 10 * UI_SCALE;
+            hlg.padding = new RectOffset(
+                Mathf.RoundToInt(RowPaddingX * UI_SCALE),
+                Mathf.RoundToInt(RowPaddingX * UI_SCALE), 0, 0);
+            hlg.spacing = ColumnSpacing * UI_SCALE;
             hlg.childAlignment = TextAnchor.MiddleLeft;
             hlg.childControlWidth = false;
             hlg.childControlHeight = false;
@@ -378,9 +388,9 @@ namespace Minesweeper.UI
 
             var rankChip = new GameObject("RankChip", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
             rankChip.transform.SetParent(rowObj.transform, false);
-            rankChip.GetComponent<RectTransform>().sizeDelta = new Vector2(34 * UI_SCALE, 24 * UI_SCALE);
+            rankChip.GetComponent<RectTransform>().sizeDelta = new Vector2(ColumnWidths[0] * UI_SCALE, 24 * UI_SCALE);
             var chipLe = rankChip.GetComponent<LayoutElement>();
-            chipLe.minWidth = 34 * UI_SCALE; chipLe.preferredWidth = 34 * UI_SCALE;
+            chipLe.minWidth = ColumnWidths[0] * UI_SCALE; chipLe.preferredWidth = ColumnWidths[0] * UI_SCALE;
             chipLe.minHeight = 22 * UI_SCALE; chipLe.preferredHeight = 22 * UI_SCALE;
             var chipImg = rankChip.GetComponent<Image>();
             chipImg.color = new Color(rankColor.r, rankColor.g, rankColor.b, 0.16f);
@@ -394,9 +404,9 @@ namespace Minesweeper.UI
             // 2. Оператор (аватар + позывной / id) -------------------------
             var operatorCol = new GameObject("Operator", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
             operatorCol.transform.SetParent(rowObj.transform, false);
-            operatorCol.GetComponent<RectTransform>().sizeDelta = new Vector2(250 * UI_SCALE, _rowHeight);
+            operatorCol.GetComponent<RectTransform>().sizeDelta = new Vector2(ColumnWidths[1] * UI_SCALE, _rowHeight);
             var opLe = operatorCol.GetComponent<LayoutElement>();
-            opLe.minWidth = 250 * UI_SCALE; opLe.preferredWidth = 250 * UI_SCALE;
+            opLe.minWidth = ColumnWidths[1] * UI_SCALE; opLe.preferredWidth = ColumnWidths[1] * UI_SCALE;
             opLe.minHeight = _rowHeight; opLe.preferredHeight = _rowHeight;
             var opHlg = operatorCol.GetComponent<HorizontalLayoutGroup>();
             opHlg.spacing = 10 * UI_SCALE;
@@ -443,7 +453,7 @@ namespace Minesweeper.UI
             // 3. Время -----------------------------------------------------
             var timeColor = rank == 1 ? new Color(251f / 255f, 191f / 255f, 36f / 255f) :
                             new Color(0f, 242f / 255f, 254f / 255f);
-            var timeTxt = CreateLabel(rowObj.transform, $"{entry.TimeSeconds:000.0}s", 100, timeColor);
+            var timeTxt = CreateLabel(rowObj.transform, $"{entry.TimeSeconds:000.0}s", ColumnWidths[2], timeColor);
             timeTxt.fontSize = 14 * UI_SCALE;
             timeTxt.fontStyle = FontStyles.Bold;
             timeTxt.alignment = TextAlignmentOptions.MidlineRight;
@@ -454,9 +464,9 @@ namespace Minesweeper.UI
             // 5. Точность -------------------------------------------------
             var accCol = new GameObject("Accuracy", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
             accCol.transform.SetParent(rowObj.transform, false);
-            accCol.GetComponent<RectTransform>().sizeDelta = new Vector2(104 * UI_SCALE, _rowHeight);
+            accCol.GetComponent<RectTransform>().sizeDelta = new Vector2(ColumnWidths[3] * UI_SCALE, _rowHeight);
             var accLe = accCol.GetComponent<LayoutElement>();
-            accLe.minWidth = 104 * UI_SCALE; accLe.preferredWidth = 104 * UI_SCALE;
+            accLe.minWidth = ColumnWidths[3] * UI_SCALE; accLe.preferredWidth = ColumnWidths[3] * UI_SCALE;
             accLe.minHeight = _rowHeight; accLe.preferredHeight = _rowHeight;
             var accHlg = accCol.GetComponent<HorizontalLayoutGroup>();
             accHlg.spacing = 6 * UI_SCALE;
@@ -485,9 +495,9 @@ namespace Minesweeper.UI
             // 6. Дата -----------------------------------------------------
             var dateCol = new GameObject("Date", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(LayoutElement));
             dateCol.transform.SetParent(rowObj.transform, false);
-            dateCol.GetComponent<RectTransform>().sizeDelta = new Vector2(130 * UI_SCALE, _rowHeight);
+            dateCol.GetComponent<RectTransform>().sizeDelta = new Vector2(ColumnWidths[4] * UI_SCALE, _rowHeight);
             var dateLe = dateCol.GetComponent<LayoutElement>();
-            dateLe.minWidth = 130 * UI_SCALE; dateLe.preferredWidth = 130 * UI_SCALE;
+            dateLe.minWidth = ColumnWidths[4] * UI_SCALE; dateLe.preferredWidth = ColumnWidths[4] * UI_SCALE;
             dateLe.minHeight = _rowHeight; dateLe.preferredHeight = _rowHeight;
             var dateHlg = dateCol.GetComponent<VerticalLayoutGroup>();
             dateHlg.spacing = 0 * UI_SCALE;
@@ -544,7 +554,7 @@ namespace Minesweeper.UI
         {
             if (GameController.Instance != null)
             {
-                GameController.Instance.HighScores.ResetToDefaults();
+                GameController.Instance.HighScores.ClearAll();
                 GameController.Instance.SaveMgr.SaveHighScores(GameController.Instance.HighScores);
                 PopulateTable();
             }

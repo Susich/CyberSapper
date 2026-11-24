@@ -390,6 +390,8 @@ namespace Minesweeper.Editor
 
             var statusBar = bar.AddComponent<SystemStatusBar>();
             SetPrivateField(statusBar, "_fpsText", right);
+            // Не позволяет ужать окно до нечитаемого размера (см. WindowSizeGuard).
+            bar.AddComponent<WindowSizeGuard>();
             return bar;
         }
 
@@ -1084,9 +1086,9 @@ namespace Minesweeper.Editor
             hlgCust.childControlHeight = true;
             hlgCust.childForceExpandWidth = true;
 
-            CreateStepperWithSlider(customCont.transform, "Высота", "16", 9, 24, font, out var txtH, out var btnHMinus, out var btnHPlus, out var sldH);
-            CreateStepperWithSlider(customCont.transform, "Ширина", "30", 9, 30, font, out var txtW, out var btnWMinus, out var btnWPlus, out var sldW);
-            CreateStepperWithSlider(customCont.transform, "Число мин", "99", 10, 432, font, out var txtM, out var btnMMinus, out var btnMPlus, out var sldM);
+            CreateStepperWithSlider(customCont.transform, "Высота", "16", 9, 24, font, out var txtH, out var btnHMinus, out var btnHPlus, out var sldH, out _);
+            CreateStepperWithSlider(customCont.transform, "Ширина", "30", 9, 30, font, out var txtW, out var btnWMinus, out var btnWPlus, out var sldW, out _);
+            CreateStepperWithSlider(customCont.transform, "Число мин", "99", 10, 432, font, out var txtM, out var btnMMinus, out var btnMPlus, out var sldM, out var minesRangeText);
 
             // ---------- Итоговая карточка ----------
             var summaryCard = CreateUIObject("SummaryCard", panel.transform, Vector2.zero, Vector2.zero, new Vector2(0, 48));
@@ -1202,6 +1204,7 @@ namespace Minesweeper.Editor
             SetPrivateField(sm, "_minesMinus", btnMMinus);
             SetPrivateField(sm, "_minesPlus", btnMPlus);
             SetPrivateField(sm, "_minesSlider", sldM);
+            SetPrivateField(sm, "_minesRangeText", minesRangeText);
             SetPrivateField(sm, "_densityText", densityText);
             SetPrivateField(sm, "_densityStatusBadge", densityBadge);
             SetPrivateField(sm, "_totalCellsText", totalCellsText);
@@ -1327,7 +1330,7 @@ namespace Minesweeper.Editor
             leHdr.preferredHeight = 30 * UI_SCALE;
             headerTable.AddComponent<Image>().color = ColSurface;
             var hlgHdr = headerTable.AddComponent<HorizontalLayoutGroup>();
-            hlgHdr.padding = Pad(18, 18, 0, 0);
+            hlgHdr.padding = Pad(22, 22, 0, 0);
             hlgHdr.spacing = 10 * UI_SCALE;
             hlgHdr.childAlignment = TextAnchor.MiddleLeft;
             hlgHdr.childControlWidth = false;
@@ -1493,7 +1496,7 @@ namespace Minesweeper.Editor
             CreateBullet(rulesCont.transform, "[ПКМ] Установка / снятие флажка: защищает ячейку от подрыва.", font);
             CreateBullet(rulesCont.transform, "[СКМ / ЛКМ+ПКМ] Аккорд: быстрое раскрытие соседей вокруг числа.", font);
             CreateBullet(rulesCont.transform, "[Пробел / Пауза] Приостановка таймера с сокрытием поля.", font);
-            CreateBullet(rulesCont.transform, "[F2 / клик по дрону] Быстрый рестарт партии с сохранением сложности.", font);
+            CreateBullet(rulesCont.transform, "[F2 / клик по смайлику] Быстрый рестарт партии с сохранением сложности.", font);
             CreateBullet(rulesCont.transform, "Цель: открыть все свободные от мин ячейки за минимальное время.", font, ColPrimaryContainer);
 
             var aboutCont = CreateUIObject("AboutContainer", panel.transform, Vector2.zero, Vector2.zero, new Vector2(0, 380));
@@ -1509,7 +1512,7 @@ namespace Minesweeper.Editor
 
             CreateBullet(aboutCont.transform, "Учебный проект по дисциплине «Технологии разработки программно-информационных систем»", font, ColOnSurfaceVariant);
             CreateBullet(aboutCont.transform, "Волгоградский государственный технический университет (ВолгГТУ), 2026 г.", font, ColOnSurfaceVariant);
-            CreateBullet(aboutCont.transform, "Преподаватель: доцент Рак Д.В.", font, ColOnSurface);
+            CreateBullet(aboutCont.transform, "Преподаватель: Рак Д.В.", font, ColOnSurface);
             CreateBullet(aboutCont.transform, "Команда разработчиков (гр. ПрИн-366):", font, ColPrimaryContainer);
             CreateBullet(aboutCont.transform, "• Тюрин С.С. — Тимлид / Архитектор", font, ColOnSurface);
             CreateBullet(aboutCont.transform, "• Игнатов М.Р. — Frontend-разработчик (Cyberpunk HUD UI)", font, ColOnSurface);
@@ -1959,7 +1962,7 @@ namespace Minesweeper.Editor
             return slider;
         }
 
-        private static GameObject CreateStepperWithSlider(Transform parent, string label, string val, int min, int max, TMP_FontAsset font, out TMP_InputField valInput, out Button btnMinus, out Button btnPlus, out Slider slider)
+        private static GameObject CreateStepperWithSlider(Transform parent, string label, string val, int min, int max, TMP_FontAsset font, out TMP_InputField valInput, out Button btnMinus, out Button btnPlus, out Slider slider, out TextMeshProUGUI rangeText)
         {
             var box = CreateUIObject("Stepper_" + label, parent, Vector2.zero, Vector2.zero, new Vector2(220, 132));
             var leBox = box.AddComponent<LayoutElement>();
@@ -1998,6 +2001,7 @@ namespace Minesweeper.Editor
             var rangeLbl = CreateText(topRow.transform, $"{min}—{max}", font, 9, FontStyles.Normal, ColOnSurfaceVariant, tracking: 2);
             rangeLbl.textWrappingMode = TextWrappingModes.NoWrap;
             rangeLbl.rectTransform.sizeDelta = new Vector2(60 * UI_SCALE, 18 * UI_SCALE);
+            rangeText = rangeLbl;
 
             var stepRow = CreateUIObject("StepRow", box.transform, Vector2.zero, Vector2.zero, new Vector2(0, 38));
             var leSR = stepRow.AddComponent<LayoutElement>();

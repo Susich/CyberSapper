@@ -39,6 +39,7 @@ namespace Minesweeper.UI
         [SerializeField] private Button _minesMinus;
         [SerializeField] private Button _minesPlus;
         [SerializeField] private Slider _minesSlider;
+        [SerializeField] private TextMeshProUGUI _minesRangeText;
 
         [Header("Tactical Density & Summary")]
         [SerializeField] private TextMeshProUGUI _densityText;
@@ -323,10 +324,16 @@ namespace Minesweeper.UI
             if (_widthSlider != null && (int)_widthSlider.value != w) _widthSlider.SetValueWithoutNotify(w);
             if (_heightSlider != null && (int)_heightSlider.value != h) _heightSlider.SetValueWithoutNotify(h);
 
+            int maxMines = Mathf.Max(10, w * h - 9);
+            if (_minesRangeText != null)
+            {
+                // Верхняя граница зависит от ширины и высоты сетки (см. GameDifficulty.ValidateCustom).
+                _minesRangeText.text = $"10—{maxMines}";
+            }
+
             if (_minesSlider != null)
             {
                 // Максимум мин зависит от текущей сетки, точно как в GameDifficulty.ValidateCustom.
-                int maxMines = Mathf.Max(10, w * h - 9);
                 if (!Mathf.Approximately(_minesSlider.maxValue, maxMines))
                 {
                     _minesSlider.maxValue = maxMines;

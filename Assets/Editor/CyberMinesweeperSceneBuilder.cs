@@ -70,7 +70,6 @@ namespace Minesweeper.Editor
             }
 
             Debug.Log("Starting Cyber Minesweeper Scene generation (Modern Cyberpunk HUD v2.4 PRO)...");
-            Directory.CreateDirectory("Assets/Prefabs");
             Directory.CreateDirectory("Assets/Scenes");
 
             EnsureSpriteBorders();
@@ -1495,8 +1494,8 @@ namespace Minesweeper.Editor
             CreateBullet(rulesCont.transform, "[ЛКМ] Открытие ячейки: первый клик всегда безопасен (зона 3×3).", font);
             CreateBullet(rulesCont.transform, "[ПКМ] Установка / снятие флажка: защищает ячейку от подрыва.", font);
             CreateBullet(rulesCont.transform, "[СКМ / ЛКМ+ПКМ] Аккорд: быстрое раскрытие соседей вокруг числа.", font);
-            CreateBullet(rulesCont.transform, "[Пробел / Пауза] Приостановка таймера с сокрытием поля.", font);
-            CreateBullet(rulesCont.transform, "[F2 / клик по смайлику] Быстрый рестарт партии с сохранением сложности.", font);
+            CreateBullet(rulesCont.transform, "[Esc / кнопка «Пауза»] Приостановка таймера с сокрытием поля.", font);
+            CreateBullet(rulesCont.transform, "[Пробел / F2 / клик по смайлику] Быстрый рестарт партии с сохранением сложности.", font);
             CreateBullet(rulesCont.transform, "Цель: открыть все свободные от мин ячейки за минимальное время.", font, ColPrimaryContainer);
 
             var aboutCont = CreateUIObject("AboutContainer", panel.transform, Vector2.zero, Vector2.zero, new Vector2(0, 380));

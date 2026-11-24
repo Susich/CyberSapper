@@ -71,6 +71,17 @@ namespace Minesweeper.Storage
             };
         }
 
+        /// <summary>
+        /// Полностью очищает все таблицы рекордов. Используется кнопкой «Сбросить рекорды»:
+        /// игрок должен увидеть пустой реестр, а не те же стартовые записи, что и до нажатия.
+        /// </summary>
+        public void ClearAll()
+        {
+            BeginnerScores = new List<HighScoreEntry>();
+            IntermediateScores = new List<HighScoreEntry>();
+            ExpertScores = new List<HighScoreEntry>();
+        }
+
         public List<HighScoreEntry> GetListForDifficulty(DifficultyLevel level)
         {
             switch (level)

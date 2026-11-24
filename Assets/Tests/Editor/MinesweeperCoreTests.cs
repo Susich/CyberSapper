@@ -230,5 +230,20 @@ namespace Minesweeper.Tests
             Assert.AreEqual("NEW_RECORD", scores.BeginnerScores[0].PlayerName);
             Assert.AreEqual(5, scores.BeginnerScores.Count);
         }
+
+        [Test]
+        public void TestHighScoresClearAllEmptiesEveryTable()
+        {
+            var scores = HighScoresData.CreateDefault();
+            Assert.AreEqual(5, scores.BeginnerScores.Count);
+            Assert.AreEqual(5, scores.IntermediateScores.Count);
+            Assert.AreEqual(5, scores.ExpertScores.Count);
+
+            scores.ClearAll();
+
+            Assert.AreEqual(0, scores.BeginnerScores.Count);
+            Assert.AreEqual(0, scores.IntermediateScores.Count);
+            Assert.AreEqual(0, scores.ExpertScores.Count);
+        }
     }
 }

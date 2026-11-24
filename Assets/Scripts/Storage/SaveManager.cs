@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -64,8 +65,15 @@ namespace Minesweeper.Storage
                 {
                     string json = File.ReadAllText(path);
                     var data = JsonUtility.FromJson<HighScoresData>(json);
-                    if (data != null && data.BeginnerScores != null && data.BeginnerScores.Count > 0)
+                    if (data != null)
+                    {
+                        // Пустые таблицы - это результат кнопки «Сбросить рекорды»,
+                        // а не отсутствие файла. Не подменяем их стартовыми записями.
+                        if (data.BeginnerScores == null) data.BeginnerScores = new List<HighScoreEntry>();
+                        if (data.IntermediateScores == null) data.IntermediateScores = new List<HighScoreEntry>();
+                        if (data.ExpertScores == null) data.ExpertScores = new List<HighScoreEntry>();
                         return data;
+                    }
                 }
             }
             catch (Exception ex)
